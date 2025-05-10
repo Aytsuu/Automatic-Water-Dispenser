@@ -3,10 +3,11 @@
 
 #define trigPin 10
 #define echoPin 11
+#define relayPin A1
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-//Keypad setup
+// Keypad setup
 const byte ROWS = 4;
 const byte COLS = 4;
 char keys[ROWS][COLS] = {
@@ -20,8 +21,8 @@ byte rowPins[ROWS] = {9, 8, 7, 6};
 byte colPins[COLS] = {5, 4, 3, 2};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-String correctUsername = "ABCD";
-String correctPassword = "1234";
+String correctUsername = "1010";
+String correctPassword = "1111";
 String inputUsername = "";
 String inputPassword = "";
 bool enteringUsername = true;
@@ -29,19 +30,27 @@ bool authenticated = false;
 int cursorPos = 0;
 
 // Initialize pins
-int duration;
-int distance;
 int waterSensorPin = A0;
 int ledPins[2] = {13, 12};
 bool activateUltrasonic = false;
 
+// Ultrasonic sensor improvements
+const int MAX_DISTANCE = 10; // 20 cm maximum detection range
+const int SAMPLE_SIZE = 5;   // Number of samples for averaging
+unsigned long lastMeasurement = 0;
+const unsigned long MEASUREMENT_INTERVAL = 100; // ms between measurements
+
 void setup() {
   Serial.begin(9600);
 
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW);
+  delay(100);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   for(int i = 0; i < 2; i++) {
     pinMode(ledPins[i], OUTPUT);
+    digitalWrite(ledPins[i], LOW);
   };
   lcd.init();
   lcd.backlight();
@@ -74,19 +83,52 @@ void runWaterLevelSensor(){
     digitalWrite(ledPins[0], LOW);
     turnOffLights();
     activateUltrasonic = false; 
+    digitalWrite(relayPin, LOW); // Ensure pump is off when water level is low
   }
 }
 
 void runUltrasonic() {  
-  unsigned long distance = calculateDistance();
-  Serial.print("Distance: ");
-  Serial.println(distance);
+  static bool objectDetected = false;
   
-  if(distance > 0 && distance <= 30) {  // Valid range: 1cm-400cm
-    digitalWrite(ledPins[1], HIGH);  // Object detected → LED ON
-  } else {
-    digitalWrite(ledPins[1], LOW);   // No object → LED OFF
+  // Only take measurements at regular intervals
+  if (millis() - lastMeasurement >= MEASUREMENT_INTERVAL) {
+    lastMeasurement = millis();
+    
+    unsigned long distance = getFilteredDistance();
+    Serial.print("Distance: ");
+    Serial.println(distance);
+    
+    if(distance > 0 && distance <= MAX_DISTANCE) {
+      if (!objectDetected) {
+        objectDetected = true;
+        digitalWrite(ledPins[1], HIGH);
+        digitalWrite(relayPin, HIGH);
+      }
+    } else {
+      if (objectDetected) {
+        objectDetected = false;
+        digitalWrite(ledPins[1], LOW);
+        digitalWrite(relayPin, LOW);
+      }
+    }
   }
+}
+
+unsigned long getFilteredDistance() {
+  // Take multiple samples and average them
+  unsigned long sum = 0;
+  int validSamples = 0;
+  
+  for (int i = 0; i < SAMPLE_SIZE; i++) {
+    unsigned long dist = calculateDistance();
+    if (dist > 0 && dist <= 400) { // Filter out invalid readings
+      sum += dist;
+      validSamples++;
+    }
+    delay(10); // Small delay between samples
+  }
+  
+  return validSamples > 0 ? sum / validSamples : 0;
 }
 
 void handleKeyInput(char key) {
