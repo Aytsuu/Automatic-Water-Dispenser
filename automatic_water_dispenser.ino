@@ -1,8 +1,8 @@
 #include <Keypad.h>
 #include <LiquidCrystal_I2C.h>
 
-#define trigPin 10
-#define echoPin 11
+#define trigPin A3
+#define echoPin A2
 #define relayPin A1
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -35,14 +35,12 @@ int ledPins[2] = {13, 12};
 bool activateUltrasonic = false;
 
 // Ultrasonic sensor improvements
-const int MAX_DISTANCE = 10; // 20 cm maximum detection range
+const int MAX_DISTANCE = 5; // 5 cm maximum detection range
 const int SAMPLE_SIZE = 5;   // Number of samples for averaging
 unsigned long lastMeasurement = 0;
 const unsigned long MEASUREMENT_INTERVAL = 100; // ms between measurements
 
 void setup() {
-  Serial.begin(9600);
-
   pinMode(relayPin, OUTPUT);
   digitalWrite(relayPin, LOW);
   delay(100);
@@ -55,6 +53,7 @@ void setup() {
   lcd.init();
   lcd.backlight();
   lcd.print("Enter Username:");
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -95,20 +94,22 @@ void runUltrasonic() {
     lastMeasurement = millis();
     
     unsigned long distance = getFilteredDistance();
-    Serial.print("Distance: ");
-    Serial.println(distance);
     
     if(distance > 0 && distance <= MAX_DISTANCE) {
       if (!objectDetected) {
         objectDetected = true;
         digitalWrite(ledPins[1], HIGH);
         digitalWrite(relayPin, HIGH);
+        Serial.println("Object detected - Turning pump ON");
+        delay(50);
       }
     } else {
       if (objectDetected) {
         objectDetected = false;
         digitalWrite(ledPins[1], LOW);
         digitalWrite(relayPin, LOW);
+        Serial.println("No object detected");
+        delay(50);
       }
     }
   }
@@ -194,6 +195,7 @@ void verifyLogin() {
 void resetSystem() {
   authenticated = false;
   activateUltrasonic = false;
+  digitalWrite(relayPin, LOW);
   turnOffLights();
   resetInput();
   lcd.clear();
