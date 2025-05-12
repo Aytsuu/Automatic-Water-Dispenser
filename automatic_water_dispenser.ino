@@ -71,20 +71,32 @@ void loop() {
     }
   }
 }
-
 void runWaterLevelSensor(){
+  static bool highWaterState = false;
+  static unsigned long lastChangeTime = 0;
+  const unsigned long debounceTime = 500; // 500ms minimum state duration
+  
   int value = calculateWaterLevel();
 
-  if(value >= 400){
-    digitalWrite(ledPins[2], HIGH);
-    digitalWrite(ledPins[0], LOW);
-    activateUltrasonic = true;
-  } else {
-    digitalWrite(ledPins[0], HIGH);
-    digitalWrite(ledPins[1], LOW);
-    digitalWrite(ledPins[2], LOW);
-    activateUltrasonic = false; 
-    digitalWrite(relayPin, LOW); // Ensure pump is off when water level is low
+  if(!highWaterState && value >= 400) {
+    if(millis() - lastChangeTime > debounceTime) {
+      // Water rising above threshold
+      highWaterState = true;
+      digitalWrite(ledPins[2], HIGH);
+      digitalWrite(ledPins[0], LOW);
+      activateUltrasonic = true;
+    }
+  } 
+  else if(highWaterState && value < 400) {
+    if(millis() - lastChangeTime > debounceTime) {
+      // Water falling below lower threshold
+      highWaterState = false;
+      digitalWrite(ledPins[0], HIGH);
+      digitalWrite(ledPins[1], LOW);
+      digitalWrite(ledPins[2], LOW);
+      activateUltrasonic = false; 
+      digitalWrite(relayPin, LOW);
+    }
   }
 }
 
@@ -235,6 +247,13 @@ unsigned long calculateDistance() {
 }
 
 
- int calculateWaterLevel() {
-  return analogRead(waterSensorPin);
- }
+int calculateWaterLevel() {
+  const int numReadings = 10;  // Number of samples to average
+  int sum = 0;
+  
+  for(int i = 0; i < numReadings; i++) {
+    sum += analogRead(waterSensorPin);
+    delay(10);  // Small delay between readings
+  }
+  return sum / numReadings;
+}
