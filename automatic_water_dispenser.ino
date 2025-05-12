@@ -31,7 +31,7 @@ int cursorPos = 0;
 
 // Initialize pins
 int waterSensorPin = A0;
-int ledPins[2] = {13, 12};
+int ledPins[3] = {13, 12, 11};
 bool activateUltrasonic = false;
 
 // Ultrasonic sensor improvements
@@ -46,7 +46,7 @@ void setup() {
   delay(100);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
-  for(int i = 0; i < 2; i++) {
+  for(int i = 0; i < 3; i++) {
     pinMode(ledPins[i], OUTPUT);
     digitalWrite(ledPins[i], LOW);
   };
@@ -75,12 +75,14 @@ void loop() {
 void runWaterLevelSensor(){
   int value = calculateWaterLevel();
 
-  if(value >= 310){
-    digitalWrite(ledPins[0], HIGH);
+  if(value >= 400){
+    digitalWrite(ledPins[2], HIGH);
+    digitalWrite(ledPins[0], LOW);
     activateUltrasonic = true;
   } else {
-    digitalWrite(ledPins[0], LOW);
-    turnOffLights();
+    digitalWrite(ledPins[0], HIGH);
+    digitalWrite(ledPins[1], LOW);
+    digitalWrite(ledPins[2], LOW);
     activateUltrasonic = false; 
     digitalWrite(relayPin, LOW); // Ensure pump is off when water level is low
   }
@@ -215,7 +217,7 @@ void resetInput() {
 }
 
 void turnOffLights() {
-  for(int i = 0; i < 2; i++) {
+  for(int i = 0; i < 3; i++) {
     digitalWrite(ledPins[i], LOW);
   }
   return;
