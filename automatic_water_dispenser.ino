@@ -72,25 +72,22 @@ void loop() {
   }
 }
 void runWaterLevelSensor(){
-  static bool highWaterState = false;
   static unsigned long lastChangeTime = 0;
   const unsigned long debounceTime = 500; // 500ms minimum state duration
   
   int value = calculateWaterLevel();
 
-  if(!highWaterState && value >= 400) {
+  if(value >= 400) {
     if(millis() - lastChangeTime > debounceTime) {
       // Water rising above threshold
-      highWaterState = true;
       digitalWrite(ledPins[2], HIGH);
       digitalWrite(ledPins[0], LOW);
       activateUltrasonic = true;
     }
   } 
-  else if(highWaterState && value < 400) {
+  else {
     if(millis() - lastChangeTime > debounceTime) {
       // Water falling below lower threshold
-      highWaterState = false;
       digitalWrite(ledPins[0], HIGH);
       digitalWrite(ledPins[1], LOW);
       digitalWrite(ledPins[2], LOW);
@@ -108,8 +105,9 @@ void runUltrasonic() {
     lastMeasurement = millis();
     
     unsigned long distance = getFilteredDistance();
+    Serial.println(distance);
     
-    if(distance > 0 && distance <= MAX_DISTANCE) {
+    if(distance >= 0 && distance <= MAX_DISTANCE) {
       if (!objectDetected) {
         objectDetected = true;
         digitalWrite(ledPins[1], HIGH);
