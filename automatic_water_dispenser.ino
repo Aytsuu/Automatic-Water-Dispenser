@@ -75,9 +75,10 @@ void runWaterLevelSensor(){
   static unsigned long lastChangeTime = 0;
   const unsigned long debounceTime = 500; // 500ms minimum state duration
   
-  int value = calculateWaterLevel();
+  int level = calculateWaterLevel();
+  Serial.print("Water Level: "); Serial.println(level);
 
-  if(value >= 400) {
+  if(level >= 435) {
     if(millis() - lastChangeTime > debounceTime) {
       // Water rising above threshold
       digitalWrite(ledPins[2], HIGH);
@@ -105,8 +106,8 @@ void runUltrasonic() {
     lastMeasurement = millis();
     
     unsigned long distance = getFilteredDistance();
-    Serial.println(distance);
-    
+    Serial.print("Object Distance: "); Serial.println(distance);
+     
     if(distance >= 0 && distance <= MAX_DISTANCE) {
       if (!objectDetected) {
         objectDetected = true;
