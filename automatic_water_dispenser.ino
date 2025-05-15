@@ -78,7 +78,7 @@ void runWaterLevelSensor(){
   int level = calculateWaterLevel();
   Serial.print("Water Level: "); Serial.println(level);
 
-  if(level >= 435) {
+  if(level >= 500) {
     if(millis() - lastChangeTime > debounceTime) {
       // Water rising above threshold
       digitalWrite(ledPins[2], HIGH);
