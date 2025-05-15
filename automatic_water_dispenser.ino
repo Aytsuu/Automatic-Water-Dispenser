@@ -42,7 +42,7 @@ const unsigned long MEASUREMENT_INTERVAL = 100; // ms between measurements
 
 void setup() {
   pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, LOW);
+  digitalWrite(relayPin, HIGH);
   delay(100);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -93,7 +93,7 @@ void runWaterLevelSensor(){
       digitalWrite(ledPins[1], LOW);
       digitalWrite(ledPins[2], LOW);
       activateUltrasonic = false; 
-      digitalWrite(relayPin, LOW);
+      digitalWrite(relayPin, HIGH);
     }
   }
 }
@@ -112,7 +112,7 @@ void runUltrasonic() {
       if (!objectDetected) {
         objectDetected = true;
         digitalWrite(ledPins[1], HIGH);
-        digitalWrite(relayPin, HIGH);
+        digitalWrite(relayPin, LOW);
         Serial.println("Object detected - Turning pump ON");
         delay(50);
       }
@@ -120,7 +120,7 @@ void runUltrasonic() {
       if (objectDetected) {
         objectDetected = false;
         digitalWrite(ledPins[1], LOW);
-        digitalWrite(relayPin, LOW);
+        digitalWrite(relayPin, HIGH);
         Serial.println("No object detected");
         delay(50);
       }
@@ -208,7 +208,7 @@ void verifyLogin() {
 void resetSystem() {
   authenticated = false;
   activateUltrasonic = false;
-  digitalWrite(relayPin, LOW);
+  digitalWrite(relayPin, HIGH);
   turnOffLights();
   resetInput();
   lcd.clear();
