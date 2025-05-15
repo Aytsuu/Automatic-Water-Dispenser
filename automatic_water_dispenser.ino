@@ -35,7 +35,7 @@ int ledPins[3] = {13, 12, 11};
 bool activateUltrasonic = false;
 
 // Ultrasonic sensor improvements
-const int MAX_DISTANCE = 5; // 5 cm maximum detection range
+const int MAX_DISTANCE = 7; // 7 cm maximum detection range
 const int SAMPLE_SIZE = 5;   // Number of samples for averaging
 unsigned long lastMeasurement = 0;
 const unsigned long MEASUREMENT_INTERVAL = 100; // ms between measurements
@@ -72,34 +72,29 @@ void loop() {
   }
 }
 void runWaterLevelSensor(){
-  static unsigned long lastChangeTime = 0;
-  const unsigned long debounceTime = 500; // 500ms minimum state duration
   
   int level = calculateWaterLevel();
   Serial.print("Water Level: "); Serial.println(level);
 
-  if(level >= 500) {
-    if(millis() - lastChangeTime > debounceTime) {
+  if(level > 500) {
       // Water rising above threshold
       digitalWrite(ledPins[2], HIGH);
       digitalWrite(ledPins[0], LOW);
       activateUltrasonic = true;
-    }
+    
   } 
   else {
-    if(millis() - lastChangeTime > debounceTime) {
       // Water falling below lower threshold
       digitalWrite(ledPins[0], HIGH);
       digitalWrite(ledPins[1], LOW);
       digitalWrite(ledPins[2], LOW);
       activateUltrasonic = false; 
       digitalWrite(relayPin, HIGH);
-    }
+    
   }
 }
 
 void runUltrasonic() {  
-  static bool objectDetected = false;
   
   // Only take measurements at regular intervals
   if (millis() - lastMeasurement >= MEASUREMENT_INTERVAL) {
@@ -109,21 +104,20 @@ void runUltrasonic() {
     Serial.print("Object Distance: "); Serial.println(distance);
      
     if(distance >= 0 && distance <= MAX_DISTANCE) {
-      if (!objectDetected) {
-        objectDetected = true;
+  
         digitalWrite(ledPins[1], HIGH);
         digitalWrite(relayPin, LOW);
         Serial.println("Object detected - Turning pump ON");
         delay(50);
-      }
+      
     } else {
-      if (objectDetected) {
-        objectDetected = false;
+
+  
         digitalWrite(ledPins[1], LOW);
         digitalWrite(relayPin, HIGH);
         Serial.println("No object detected");
         delay(50);
-      }
+      
     }
   }
 }
@@ -193,7 +187,7 @@ void verifyLogin() {
     authenticated = true;
     delay(1000);
     lcd.clear();
-    lcd.print("Water Sensor Active");
+    lcd.print("Sensor Activated!");
     lcd.setCursor(0, 1);
     lcd.print("* to reset");
   } else {
