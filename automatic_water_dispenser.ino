@@ -21,8 +21,8 @@ byte rowPins[ROWS] = {9, 8, 7, 6};
 byte colPins[COLS] = {5, 4, 3, 2};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-String correctUsername = "1010";
-String correctPassword = "1111";
+String correctUsername = "10";
+String correctPassword = "11";
 String inputUsername = "";
 String inputPassword = "";
 bool enteringUsername = true;
@@ -39,6 +39,14 @@ const int MAX_DISTANCE = 7; // 7 cm maximum detection range
 const int SAMPLE_SIZE = 5;   // Number of samples for averaging
 unsigned long lastMeasurement = 0;
 const unsigned long MEASUREMENT_INTERVAL = 100; // ms between measurements
+
+// Timing variables for detection cycle
+unsigned long detectionStartTime = 0;
+const unsigned long DETECTION_DURATION = 7000; // 7 seconds detection
+const unsigned long COOLDOWN_DURATION = 3000;   // 5 seconds cooldown
+bool inDetectionPhase = false;
+bool inCooldownPhase = false;
+bool objectCurrentlyDetected = false;
 
 void setup() {
   pinMode(relayPin, OUTPUT);
@@ -71,53 +79,82 @@ void loop() {
     }
   }
 }
+
 void runWaterLevelSensor(){
-  
   int level = calculateWaterLevel();
   Serial.print("Water Level: "); Serial.println(level);
 
-  if(level > 500) {
-      // Water rising above threshold
-      digitalWrite(ledPins[2], HIGH);
-      digitalWrite(ledPins[0], LOW);
-      activateUltrasonic = true;
-    
+  if(level > 525) {
+    // Water rising above threshold
+    digitalWrite(ledPins[2], HIGH);
+    digitalWrite(ledPins[0], LOW);
+    activateUltrasonic = true;
   } 
   else {
-      // Water falling below lower threshold
-      digitalWrite(ledPins[0], HIGH);
-      digitalWrite(ledPins[1], LOW);
-      digitalWrite(ledPins[2], LOW);
-      activateUltrasonic = false; 
-      digitalWrite(relayPin, HIGH);
-    
+    // Water falling below lower threshold
+    digitalWrite(ledPins[0], HIGH);
+    digitalWrite(ledPins[1], LOW);
+    digitalWrite(ledPins[2], LOW);
+    activateUltrasonic = false; 
+    digitalWrite(relayPin, HIGH);
+    // Reset detection phases when water level is low
+    inDetectionPhase = false;
+    inCooldownPhase = false;
+    objectCurrentlyDetected = false;
   }
 }
 
 void runUltrasonic() {  
-  
-  // Only take measurements at regular intervals
   if (millis() - lastMeasurement >= MEASUREMENT_INTERVAL) {
     lastMeasurement = millis();
-    
     unsigned long distance = getFilteredDistance();
-    Serial.print("Object Distance: "); Serial.println(distance);
-     
-    if(distance >= 0 && distance <= MAX_DISTANCE) {
-  
-        digitalWrite(ledPins[1], HIGH);
-        digitalWrite(relayPin, LOW);
-        Serial.println("Object detected - Turning pump ON");
-        delay(50);
-      
-    } else {
-
-  
+    bool objectDetectedNow = (distance <= MAX_DISTANCE && distance >= 0);
+    
+    // Check if we're in cooldown phase
+    if (inCooldownPhase) {
+      if (millis() - detectionStartTime >= COOLDOWN_DURATION) {
+        // Cooldown finished, ready for new detection
+        inCooldownPhase = false;
+        Serial.println("Cooldown finished, ready for new detection");
+      }
+      return;
+    }
+    
+    // Handle object detection changes
+    if (objectDetectedNow && !objectCurrentlyDetected) {
+      // New object detected
+      objectCurrentlyDetected = true;
+      inDetectionPhase = true;
+      detectionStartTime = millis();
+      digitalWrite(ledPins[1], HIGH);
+      delay(300);
+      digitalWrite(relayPin, LOW);  // Pump ON
+      Serial.println("Pump ON - Object detected");
+      delay(500);
+    }
+    else if (!objectDetectedNow && objectCurrentlyDetected) {
+      // Object removed
+      objectCurrentlyDetected = false;
+      inDetectionPhase = false;
+      inCooldownPhase = false;
+      detectionStartTime = millis();
+      digitalWrite(ledPins[1], LOW);
+      digitalWrite(relayPin, HIGH); // Pump OFF
+      Serial.println("Pump OFF - Object removed");
+    }
+    
+    // If in detection phase, check if time is up
+    if (inDetectionPhase) {
+      if (millis() - detectionStartTime >= DETECTION_DURATION) {
+        // Maximum detection time reached
+        inDetectionPhase = false;
+        inCooldownPhase = true;
+        detectionStartTime = millis();
+        objectCurrentlyDetected = false;
         digitalWrite(ledPins[1], LOW);
-        digitalWrite(relayPin, HIGH);
-        Serial.println("No object detected");
-        delay(50);
-      
+        digitalWrite(relayPin, HIGH); // Pump OFF
+        Serial.println("Pump OFF - Maximum detection time reached");
+      }
     }
   }
 }
@@ -144,7 +181,7 @@ void handleKeyInput(char key) {
   if (authenticated && key == '*') {
     resetSystem();
     return;
-  }
+  }   
 
   // Normal login process when not authenticated
   if (!authenticated) {
@@ -217,8 +254,6 @@ void resetInput() {
   inputPassword = "";
   enteringUsername = true;
   cursorPos = 0;
-  authenticated = false;
-  activateUltrasonic = false;
 }
 
 void turnOffLights() {
@@ -238,7 +273,6 @@ unsigned long calculateDistance() {
   if (duration == 0) return -1; // No echo detected
   return duration * 0.034 / 2;  // Distance in cm
 }
-
 
 int calculateWaterLevel() {
   const int numReadings = 10;  // Number of samples to average
